@@ -1,0 +1,239 @@
+#LeJ.Asst7
+#Due Wednesday July 26th
+
+#load in anes data
+anesda <- read.csv("/Users/jasmine/Downloads/anes.csv")
+
+#code from assignment 
+# This code assumes you named the full data set "d"
+# Those who did answer:
+FemAnswered<-anesda[anesda$ftfeminists<999,]
+# Make training set and testing set
+set.seed(123) # Don’t change this seed!
+indicesTrainingSet<-sample(1:nrow(FemAnswered), 2000, replace=FALSE)
+train<-FemAnswered[indicesTrainingSet,]
+test<-FemAnswered[-indicesTrainingSet,]
+mean(train$ftfeminists) #48.5585
+
+#Question 2
+#a)
+regtrain <- lm(train$ftfeminists~train$vote16+train$outraged+train$vote16:train$outraged)
+plot(regtrain$fitted.values,regtrain$residuals, main = "Fitted versus Residual Values", xlab = 'Fitted Values', ylab = "Residual Values")
+splinedat <- smooth.spline(regtrain$residuals~regtrain$fitted.values)
+points(splinedat$x, splinedat$y, col = 'red', type = 'l')
+abline(h=0 ,col = 'brown')
+
+#b)
+summary(regtrain)
+reducedtrain <- lm(train$ftfeminists~train$outraged)
+reducedtrain
+anova(regtrain, reducedtrain) #p-value 2.526e-05
+
+#c) R squared = 32.19, r squared would increase
+summary(regtrain)
+
+#d) 
+summary(regtrain)
+#0.05111
+
+#e) BIC command
+BIC(regtrain) #19596.86
+
+#f) root mean square error
+sqrt(sum((regtrain$residuals)**2)/2000) #32.16163
+length(regtrain$residuals)
+
+#Question 3
+library(party)
+#tables for all variables going to impute and use for prediction
+table(anesda$ftfeminists) #cleaned
+table(anesda$vote16) #cleaned 
+table(anesda$outraged) #none missing
+table(anesda$sex) #none missing, no need to clean
+table(anesda$ftmetoo) #cleaned
+table(anesda$ftillegal) #cleaned
+table(anesda$fttransppl) #cleaned
+table(anesda$abort1) #cleaned
+
+#imputing vote16 variable
+tree <- ctree(vote16~ftfeminists, data = anesda)
+plot(tree)
+predict(tree, anesda[anesda$vote16 == 9,]) #prediction for missing vote16 variable by looking at ftfeminist variable is 2.11 so imputing Hillary Clinton for missing data point 
+anesda$vote16 <- replace(anesda$vote16, anesda$vote16 == 9, 2)
+anesda$vote16[anesda$vote16 == 1]<-"Trump"
+anesda$vote16[anesda$vote16 == 2]<-"Clinton"
+anesda$vote16[anesda$vote16 == 3]<-"Other"
+anesda$vote16[anesda$vote16 == 4]<-"No vote"
+
+
+#imputing abort1 variable
+tree <- ctree(abort1~abort2, data = anesda)
+plot(tree)
+predict(tree, anesda[anesda$abort1 == 9,])
+anesda$abort1 <- replace(anesda$abort1, anesda$abort1 == 9 & anesda$abort2 > 4, 4)
+anesda$abort1 <- replace(anesda$abort1, anesda$abort1 == 9 & (anesda$abort2 > 2 | anesda$abort2 < 4), 3)
+anesda$abort12[anesda$abort1 == 1]<-"Outlaw"
+anesda$abort12[anesda$abort1 == 2]<-"Depend"
+anesda$abort12[anesda$abort1 == 3]<-"Court"
+anesda$abort12[anesda$abort1 == 4]<-"Right"
+
+#clean and impute ftillegal 
+table(anesda$immignum)
+table(anesda$ftillegal)
+tree <- ctree(ftillegal~immignum, data = anesda)
+plot(tree, terminal_panel=node_terminal(tree))
+predict(tree, anesda[anesda$ftillegal == 999,])
+
+anesda$ftillegal <- replace(anesda$ftillegal, anesda$ftillegal == 999 & anesda$immignum <= 1, 70)
+anesda$ftillegal <- replace(anesda$ftillegal, anesda$ftillegal == 999 & (anesda$immignum > 1 & anesda$abort2 <= 4), 58)
+anesda$ftillegal <- replace(anesda$ftillegal, anesda$ftillegal == 999 & (anesda$immignum <= 5 & anesda$abort2 > 4), 46)
+anesda$ftillegal <- replace(anesda$ftillegal, anesda$ftillegal == 999 & anesda$immignum > 5, 26)
+
+anesda$ftillegal2[anesda$ftillegal <= 20]<-"1"
+anesda$ftillegal2[anesda$ftillegal > 20 & anesda$ftillegal <= 40 ]<-"2"
+anesda$ftillegal2[anesda$ftillegal > 40  & anesda$ftillegal <= 60]<-'3'
+anesda$ftillegal2[anesda$ftillegal > 60  & anesda$ftillegal <= 80]<-"4"
+anesda$ftillegal2[anesda$ftillegal > 80  & anesda$ftillegal <= 100]<-"5"
+
+
+#cleaning and impute fttransppl
+table(anesda$gayadopt)
+table(anesda$fttransppl)
+tree <- ctree(fttransppl~gayadopt, data = anesda)
+plot(tree, terminal_panel=node_terminal(tree))
+predict(tree, anesda[anesda$fttransppl==999,])
+
+anesda$fttransppl <- replace(anesda$fttransppl, anesda$fttransppl == 999 & anesda$gayadopt <= 1, 78)
+anesda$fttransppl <- replace(anesda$fttransppl, anesda$fttransppl == 999 & (anesda$gayadopt > 1 & anesda$gayadopt <= 4), 62)
+anesda$fttransppl <- replace(anesda$fttransppl, anesda$fttransppl == 999 & anesda$gayadopt > 4, 37)
+
+anesda$trans[anesda$fttransppl <= 20]<-"HDislike"
+anesda$trans[anesda$fttransppl  > 20 & anesda$fttransppl <= 40 ]<-"Dislike"
+anesda$trans[anesda$fttransppl > 40  & anesda$fttransppl <= 60]<-'Moderate'
+anesda$trans[anesda$fttransppl > 60  & anesda$fttransppl <= 80]<-"Like"
+anesda$trans[anesda$fttransppl > 80  & anesda$fttransppl <= 100]<-"HLike"
+
+#clean and impute ftmetoo
+table(anesda$ftmetoo)
+metoodraw <- sample(anesda$ftmetoo, size = 4, replace = TRUE)
+anesda$ftmetoo <- replace(anesda$ftmetoo, anesda$ftmetoo == 999, metoodraw)
+
+
+anesda$metoo[anesda$ftmetoo <= 20]<-"1"
+anesda$metoo[anesda$ftmetoo  > 20 & anesda$ftmetoo <= 40 ]<-"2"
+anesda$metoo[anesda$ftmetoo > 40  & anesda$ftmetoo <= 60]<-'3'
+anesda$metoo[anesda$ftmetoo > 60  & anesda$ftmetoo <= 80]<-"4"
+anesda$metoo[anesda$ftmetoo > 80  & anesda$ftmetoo <= 100]<-"5"
+
+#clean and impute ftfeminist 
+table(anesda$ftfeminists)
+
+tree <- ctree(ftfeminists~ftmetoo+fttransppl, data = anesda)
+plot(tree, terminal_panel=node_terminal(tree))
+predict(tree, anesda[anesda$ftfeminists==999,])
+
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$transppl <= 8 & anesda$ftmetoo <= 21, 11)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$transppl > 8 & anesda$ftmetoo <= 21, 25)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$transppl <= 60 & anesda$ftmetoo > 21 ,41)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$transppl > 60 & anesda$ftmetoo <= 47, 45)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$transppl <= 60 & anesda$ftmetoo > 47, 54)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$ftmetoo <= 74, 98)
+anesda$ftfeminists <- replace(anesda$ftfeminists, anesda$ftfeminists == 999 & anesda$ftmetoo >= 74, 90)
+
+#resplitting data into train and test 
+FemAnswered<-anesda[anesda$ftfeminists<999,]
+# Make training set and testing set
+set.seed(123) # Don’t change this seed!
+indicesTrainingSet<-sample(1:nrow(FemAnswered), 2000, replace=FALSE)
+train<-FemAnswered[indicesTrainingSet,]
+test<-FemAnswered[-indicesTrainingSet,]
+
+
+
+#4b)
+treemulti <- ctree(ftfeminists~ftillegal+ftmetoo, data = train)
+plot(treemulti, inner_panel=node_inner(treemulti, pval=FALSE, id=FALSE), terminal_panel=node_terminal(treemulti))
+boxplot(ftfeminists~ftillegal2+abort12, data = train, las = 2, col = c('blue','purple','green','red', 'pink'), xlab = '', ylab = 'Feeling towards Feminists')
+title("Feeling about feminists vs feelings about illegal immigrants and abortion", line = 3)
+mtext('Feelings towards Immigrants: Abortion stance', side=1, line=4.3)
+par(xpd=TRUE)
+legend(0,113, legend=c("Strongly Dislike", "Dislike", 'Moderate', 'Support', 'Strongly Support'),
+       col=c('blue','purple','green','red', 'pink'), lty=1, cex=0.8, title = "Feeling towards illegal immigrants", horiz=TRUE)
+
+
+boxplot(ftfeminists~metoo+trans, data = train, las = 2, col = c('blue','purple','green','red', 'pink'), xlab = '', ylab = 'Feeling towards Feminists')
+title("Feeling about feminists vs feelings about Metoo movement and transgender people", line = 3)
+mtext('Feelings towards Metoo movement: Transgender people', side=1, line=4.3)
+par(xpd=TRUE)
+legend(0,113, legend=c("Strongly Dislike", "Dislike", 'Moderate', 'Support', 'Strongly Support'),
+       col=c('blue','purple','green','red', 'pink'), lty=1, cex=0.8, title = "Feeling towards Metoo movement", horiz=TRUE)
+
+
+#4c)
+
+library(scales)
+#only two variables for model
+fem1lm<- lm(ftfeminists~ftmetoo*ftillegal, data = train)
+summary(fem1lm)
+anova(fem1lm)
+
+plot(fem1lm$fitted.values, fem1lm$resid,
+     col=alpha("red",.25))
+set.seed(44)
+fit.jit<-fem1lm$fitted.values + rnorm(nrow(train), 0, 1)
+res.jit<-fem1lm$residuals + rnorm(nrow(train), 0, 1)
+plot(fit.jit, res.jit,
+     col=alpha("cornflower blue",.25), pch=16)
+abline(h=0)
+
+splineout <- smooth.spline(fem1lm$residuals~fem1lm$fitted.values)
+points(splineout$x, splineout$y, col = 'green', type = 'l')
+#single linear regression model
+fem3lm<- lm(ftfeminists~fttransppl, data = train)
+summary(fem3lm)
+anova(fem3lm)
+
+#using ftmetoo+ftillegal+fttransppl+abort1 for multiple linear regression model
+fem2lm<- lm(ftfeminists~ftmetoo+ftillegal+fttransppl+abort1, data = train)
+summary(fem2lm)
+anova(fem2lm)
+tree <- ctree(fem2lm, data = train)
+plot(tree, terminal_panel=node_terminal(tree))
+
+plot(fem2lm$fitted.values, fem2lm$resid,
+     col=alpha("blue",.25))
+set.seed(44)
+fit.jit<-fem2lm$fitted.values + rnorm(nrow(train), 0, 1)
+res.jit<-fem2lm$residuals + rnorm(nrow(train), 0, 1)
+plot(fit.jit, res.jit,
+     col=alpha("cornflower blue",.25), pch=16)
+abline(h=0)
+
+splineout2 <- smooth.spline(fem2lm$residuals~fem2lm$fitted.values)
+points(splineout2$x, splineout2$y, col = 'brown', type = 'l')
+
+BIC(fem2lm)
+AIC(fem2lm)
+#RMSE
+RMSE1 <- sqrt(sum((fem2lm$residuals)**2)/2000) #32.16163
+length(fem2lm$residuals)
+
+#4a)
+predicted <- predict(fem2lm, test)
+predicted
+SSRtest <- sum((test$ftfeminists-predicted)**2)
+ntest <- length(test)
+RMSEtest <- sqrt(SSRtest/ntest)
+RMSEtest
+
+firstperson <- predict(fem2lm, test[1,])
+firstperson
+
+#4b)
+test[1,]
+predictedinterval <- predict(fem2lm, test[1,], interval = 'predict')
+predictedinterval
+
+
+
+
